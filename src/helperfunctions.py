@@ -31,10 +31,46 @@ def format_documents(docs: List[Document]) -> str:
     return context
 
 def should_classify(state: UnifiedState) -> str:
-    """Determines whether to continue conversation or classify condition."""
+    """Determines whether to continue conversation or classify disorder."""
     iterator = state.get("iterator", 0)
     return "classify" if iterator >= 5 else "continue"
 
+
+
+
+
+
+## Graph 2 Functions
+questionnaire_reword_prompt = ChatPromptTemplate.from_template(
+    """You are a warm, empathetic therapist assistant having a casual conversation with a student.
+
+Your task: Transform this formal question into a natural, caring conversational statement.
+
+CRITICAL RULES:
+1. DO NOT ask a direct question - make it sound like you're checking in on them
+2. DO NOT use phrases like "I'd like to ask you" or "Let me ask you"
+3. DO NOT number the question or mention it's a questionnaire
+4. Keep it short and conversational (1-2 sentences max)
+5. Frame it around "the last month" or "recently"
+6. Make it feel like a friend checking in, not a doctor diagnosing
+
+GOOD EXAMPLES:
+ BAD: "Let me ask you - in the last month, how often have you felt stressed?"
+ GOOD: "Life can get pretty overwhelming sometimes. I'm curious about how things have been for you lately - have you been feeling stressed or on edge recently?"
+
+ BAD: "I want to know how often you've felt confident."
+ GOOD: "I've noticed some people have been feeling more sure of themselves lately, while others haven't. How's that been going for you over the past month?"
+
+Now transform this question:
+Question: {question}
+
+Your conversational version (just the reworded question, nothing else):""".strip()
+)
+
+questionnaire_reword_chain = questionnaire_reword_prompt | llm
+
+
+## Graph 3 Functions
 def get_student_assessment_from_db(student_id: str) -> tuple[str, str]:
     """
     Get condition and severity from Supabase based on latest questionnaire.
@@ -76,7 +112,7 @@ def get_student_assessment_from_db(student_id: str) -> tuple[str, str]:
         print(f"⚠️  Error retrieving assessment: {str(e)}")
         return ("stress", "moderate stress")
 
-def retrieve_context_for_recommendation( condition: str, severity: str) -> str:
+def retrieve_context_for_recommendation(condition: str, severity: str) -> str:
     """
     Helper function: Retrieve RAG context for generating recommendations.
     """
@@ -94,32 +130,3 @@ def retrieve_context_for_recommendation( condition: str, severity: str) -> str:
     except Exception as e:
         print(f"⚠️  RAG retrieval error: {str(e)}")
         return ""
-    
-
-questionnaire_reword_prompt = ChatPromptTemplate.from_template(
-    """You are a warm, empathetic therapist assistant having a casual conversation with a student.
-
-Your task: Transform this formal question into a natural, caring conversational statement.
-
-CRITICAL RULES:
-1. DO NOT ask a direct question - make it sound like you're checking in on them
-2. DO NOT use phrases like "I'd like to ask you" or "Let me ask you"
-3. DO NOT number the question or mention it's a questionnaire
-4. Keep it short and conversational (1-2 sentences max)
-5. Frame it around "the last month" or "recently"
-6. Make it feel like a friend checking in, not a doctor diagnosing
-
-GOOD EXAMPLES:
- BAD: "Let me ask you - in the last month, how often have you felt stressed?"
- GOOD: "Life can get pretty overwhelming sometimes. I'm curious about how things have been for you lately - have you been feeling stressed or on edge recently?"
-
- BAD: "I want to know how often you've felt confident."
- GOOD: "I've noticed some people have been feeling more sure of themselves lately, while others haven't. How's that been going for you over the past month?"
-
-Now transform this question:
-Question: {question}
-
-Your conversational version (just the reworded question, nothing else):""".strip()
-)
-
-questionnaire_reword_chain = questionnaire_reword_prompt | llm

@@ -2,7 +2,9 @@ from pydantic import BaseModel, Field
 from typing import Annotated, Literal, List, Optional
 from typing_extensions import TypedDict
 from langgraph.graph.message import add_messages
+from langchain_openai import ChatOpenAI
 
+## UNIFIED STATE - Combines all 3 graphs
 ## UNIFIED STATE - Combines all 3 graphs
 ## UNIFIED STATE - Combines all 3 graphs
 class UnifiedState(TypedDict):
@@ -15,7 +17,7 @@ class UnifiedState(TypedDict):
     iterator: int
     rag_context: Optional[str]
 
-    # From Graph 2 (Questionnaire)
+    # From Graph 2 (Questionnaire) - NEW
     disorder: str
     question_id: list
     current_question_id: str
@@ -48,3 +50,5 @@ class Feedback(BaseModel):
         description="Give a reasoning of the chosen condition and why you chose it",
     )
 
+llm = ChatOpenAI(temperature=0.5)
+oai_client = ChatOpenAI()  # Assuming you have this configured

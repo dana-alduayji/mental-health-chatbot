@@ -5,9 +5,8 @@ from src.nodes import *
 from src.helperfunctions import should_classify
 # BUILD THE UNIFIED WORKFLOW
 # ============================================
-
 def create_unified_workflow():
-    """Creates the complete 3-graph workflow: Classification → Questionnaire → Recommendation"""
+    """Creates the complete 3-graph workflow with appointment interaction loop"""
     workflow = StateGraph(UnifiedState)
 
     # ===== GRAPH 1 NODES (Conversation & Classification) =====
@@ -34,6 +33,7 @@ def create_unified_workflow():
     workflow.add_node("determine_route", determine_route)
     workflow.add_node("treatment_plan", generate_treatment_plan)
     workflow.add_node("appointment", generate_appointment_recommendation)
+    workflow.add_node("handle_appointment", handle_appointment_interaction)  # ✅ NEW NODE
 
     # ===== GRAPH 1 EDGES (Conversation) =====
     workflow.add_edge(START, "start_conversation")
@@ -102,7 +102,7 @@ def create_unified_workflow():
     )
 
     workflow.add_edge("treatment_plan", END)
-    workflow.add_edge("appointment", END)
+    workflow.add_edge("appointment", END)  # ✅ This now shows initial suggestion and ends
+    workflow.add_edge("handle_appointment", END)  # ✅ This handles user interactions
 
     return workflow.compile()
-

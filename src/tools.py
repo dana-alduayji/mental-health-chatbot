@@ -3,34 +3,56 @@ from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.tools import tool
 from langchain_community.vectorstores import FAISS
+from qdrant_client import QdrantClient
+from langchain_qdrant import QdrantVectorStore
 from datetime import datetime
 from src.models import Feedback
 from src.supabase import supabase
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
 
 llm = ChatOpenAI(temperature=0.5)
 
+# @tool
+# def rag(query: str, k: int = 5) -> List[Document]:
+#     """Load the FAISS index and retrieve the top related documents."""
+#     folder_path = "/content/faiss_index"
+#     db = FAISS.load_local(
+#         folder_path,
+#         embeddings=OpenAIEmbeddings(),
+#         allow_dangerous_deserialization=True
+#     )
+#     return db.similarity_search(query, k)
+
+# llm_with_tools = llm.bind_tools([rag])
+# llm_structured = llm.with_structured_output(Feedback)
+
 @tool
 def rag(query: str, k: int = 5) -> List[Document]:
-    """
-    Load the FAISS index and retrieve the top related documents.
+    """Retrieve top related documents from Qdrant Cloud."""
+    
+    embeddings = OpenAIEmbeddings()
 
-    Args:
-        query: The search query string to find relevant documents
-        k: Number of documents to retrieve (default: 5)
-    """
-    folder_path = "/content/faiss_index"
-    db = FAISS.load_local(
-        folder_path,
-        embeddings=OpenAIEmbeddings(),
-        allow_dangerous_deserialization=True
+    # ✅ Connect to Qdrant Cloud directly using qdrant-client
+    client = QdrantClient(
+        url=os.environ["QDRANT_ENDPOINT"],
+        api_key=os.environ["QDRANT_API_KEY"],
     )
-    return db.similarity_search(query, k)
 
-llm_with_tools = llm.bind_tools([rag])
-llm_structured = llm.with_structured_output(Feedback)
+    # ✅ Use LangChain’s dedicated QdrantVectorStore wrapper
+    vectorstore = QdrantVectorStore(
+        client=client,
+        collection_name="MentalHealthData",
+        embedding=embeddings
+    )
+
+    # 🔍 Perform semantic search
+    docs = vectorstore.similarity_search(query, k=k)
+    return docs
 
 ## Graph 2 Tools
-
 @tool
 def get_nearest_available_slot(datetime_str: str = None, num_suggestions: int = 3) -> str:
     """Get the nearest available appointment slots starting from requested time or now."""
@@ -192,19 +214,44 @@ def update_appointment(old_appointment_id: str, student_id: str) -> str:
     except Exception as e:
         return f"Error updating appointment: {e}"
 
+# @tool
+# def retrieve_treatment_info(condition: str, severity: str, k: int = 5) -> List[Document]:
+#     """
+#     Retrieve treatment plans and recommendations from the knowledge base
+#     for a specific mental health condition and severity level.
+#     """
+#     db = FAISS.load_local(
+#         "faiss_index",
+#         embeddings=OpenAIEmbeddings(),
+#         allow_dangerous_deserialization=True
+#     )
+#     query = f"treatment plan, advices or recommendations for {condition} at {severity} severity level"
+#     return db.similarity_search(query, k=k)
 @tool
 def retrieve_treatment_info(condition: str, severity: str, k: int = 5) -> List[Document]:
     """
     Retrieve treatment plans and recommendations from the knowledge base
     for a specific mental health condition and severity level.
     """
-    db = FAISS.load_local(
-        "faiss_index",
-        embeddings=OpenAIEmbeddings(),
-        allow_dangerous_deserialization=True
+    embeddings = OpenAIEmbeddings()
+
+    # ✅ Connect to Qdrant Cloud directly using qdrant-client
+    client = QdrantClient(
+        url=os.environ["QDRANT_ENDPOINT"],
+        api_key=os.environ["QDRANT_API_KEY"],
     )
+
+    # ✅ Use LangChain’s dedicated QdrantVectorStore wrapper
+    vectorstore = QdrantVectorStore(
+        client=client,
+        collection_name="MentalHealthData",
+        embedding=embeddings
+    )
+
     query = f"treatment plan, advices or recommendations for {condition} at {severity} severity level"
-    return db.similarity_search(query, k=k)
+    # 🔍 Perform semantic search
+    docs = vectorstore.similarity_search(query, k=k)
+    return docs
 
 # Bind all tools to LLM
 llm_with_tools_full = llm.bind_tools([
